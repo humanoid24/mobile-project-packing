@@ -40,9 +40,7 @@ class _LabeledTextFieldState extends State<LabeledTextField> {
         suffixIcon: widget.obscureText
             ? IconButton(
           icon: Icon(
-            _obscure
-                ? Icons.visibility_off_outlined
-                : Icons.visibility_outlined,
+            _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
           ),
           onPressed: () {
             setState(() {
@@ -95,6 +93,55 @@ class _LoginState extends State<Login> {
   // Controller untuk ambil input
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  // Credential tetap (hard-coded sesuai permintaan)
+  static const _validUsername = 'admin';
+  static const _validPassword = 'admin123';
+
+  bool _isProcessing = false;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _attemptLogin() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Username dan Password wajib diisi"),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (username == _validUsername && password == _validPassword) {
+      _passwordController.clear();
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const Pilihsistem()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Username atau Password salah"),
+        ),
+      );
+      _passwordController.clear();
+      setState(() => _isProcessing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -150,29 +197,12 @@ class _LoginState extends State<Login> {
                     const SizedBox(height: 40),
 
                     // Tombol Login
-                    PrimaryButton(
-                      text: "Login",
-                      onPressed: () {
-                        final username = _usernameController.text;
-                        final password = _passwordController.text;
-
-                        if (username.isEmpty || password.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Username dan Password wajib diisi"),
-                            ),
-                          );
-                          return;
-                        }
-
-                        // Contoh pindah halaman
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const Pilihsistem(),
-                          ),
-                        );
-                      },
+                    SizedBox(
+                      width: double.infinity,
+                      child: PrimaryButton(
+                        text: _isProcessing ? "Memproses..." : "Login",
+                        onPressed: _isProcessing ? () {} : _attemptLogin,
+                      ),
                     ),
                   ],
                 ),

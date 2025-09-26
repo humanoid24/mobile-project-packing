@@ -19,7 +19,7 @@ class _PilihsistemState extends State<Pilihsistem> {
         title: const Text("Pilih Sistem"),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
-        centerTitle: true,
+
       ),
       body: Center(
         child: SizedBox(
