@@ -147,7 +147,7 @@ class _LoginState extends State<Login> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      backgroundColor: const Color(0xFF001F3F),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(30.0),

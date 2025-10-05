@@ -26,7 +26,7 @@ class _PilihsistemState extends State<Pilihsistem> {
           width: 350,
           height: 500,
           child: Card(
-            color: Colors.blue,
+            color: const Color(0xFF001F3F),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),

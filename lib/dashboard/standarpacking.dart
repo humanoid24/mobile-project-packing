@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:project_packing/database/standar_packing_database.dart'; // berisi DatabaseHelper + BarangModel
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:open_filex/open_filex.dart';
+
 
 class Standarpacking extends StatefulWidget {
   const Standarpacking({super.key});
@@ -26,6 +32,74 @@ class _StandarpackingState extends State<Standarpacking> {
     setState(() {
       barangList = data;
     });
+  }
+
+  Future<void> _exportToExcel() async {
+    // Ambil data dari database
+    final data = await DatabaseHelper.instance.getBarang();
+
+    if (data.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Tidak ada data untuk diekspor")),
+      );
+      return;
+    }
+
+    // Buat workbook Excel
+    var excel = Excel.createExcel();
+    Sheet sheet = excel['Standar Packing'];
+
+    // Tambahkan header
+    sheet.appendRow([
+      TextCellValue('ID'),
+      TextCellValue('Nama'),
+      TextCellValue('Kategori'),
+      TextCellValue('Jenis Kemasan'),
+      TextCellValue('Panjang'),
+      TextCellValue('Lebar'),
+      TextCellValue('Tinggi'),
+      TextCellValue('Satuan Meter'),
+      TextCellValue('Berat'),
+      TextCellValue('Satuan Berat'),
+      TextCellValue('Deskripsi'),
+    ]);
+
+
+    // Tambahkan data ke sheet
+    for (var b in data) {
+      sheet.appendRow([
+        IntCellValue(b.id ?? 0),
+        TextCellValue(b.nama),
+        TextCellValue(b.kategori),
+        TextCellValue(b.jenisKemasan),
+        IntCellValue(b.panjang),
+        IntCellValue(b.lebar),
+        IntCellValue(b.tinggi),
+        TextCellValue(b.satuanMeter),
+        IntCellValue(b.berat),
+        TextCellValue(b.satuanBerat),
+        TextCellValue(b.deskripsi),
+      ]);
+    }
+
+
+    // Simpan ke file
+    final dir = await getApplicationDocumentsDirectory();
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final filePath = '${dir.path}/standar_packing_$timestamp.xlsx';
+    final bytes = excel.encode();
+
+    if (bytes != null) {
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+    }
+
+    // Notifikasi ke user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("✅ Data berhasil diekspor ke $filePath")),
+    );
+    // setelah file disimpan
+    await OpenFilex.open(filePath);
   }
 
   /// Responsive grid
@@ -135,6 +209,13 @@ class _StandarpackingState extends State<Standarpacking> {
         title: const Text("Dashboard Barang"),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: "Export ke Excel",
+            onPressed: _exportToExcel,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
