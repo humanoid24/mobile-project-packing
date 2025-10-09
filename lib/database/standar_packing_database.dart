@@ -85,8 +85,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // ⬅️ ubah versi database agar migrate ulang
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -104,11 +105,15 @@ class DatabaseHelper {
         satuan_meter TEXT,
         berat INTEGER,
         satuan_berat TEXT,
-        material TEXT,
-        suhu TEXT,
         deskripsi TEXT
       )
     ''');
+  }
+
+  /// Handle upgrade versi DB (hapus tabel lama kalau ada)
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    await db.execute('DROP TABLE IF EXISTS barang');
+    await _createDB(db, newVersion);
   }
 
   /// Tambah barang

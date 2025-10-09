@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:project_packing/database/standar_packing_database.dart'; // berisi DatabaseHelper + BarangModel
 import 'package:excel/excel.dart';
@@ -5,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:open_filex/open_filex.dart';
+import 'package:spreadsheet_decoder/spreadsheet_decoder.dart';
 
 
 class Standarpacking extends StatefulWidget {
@@ -25,6 +27,70 @@ class _StandarpackingState extends State<Standarpacking> {
     super.initState();
     _loadBarang();
   }
+
+  Future<void> _importFromExcel() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+      );
+      if (result == null) return;
+
+      final file = File(result.files.single.path!);
+      final bytes = file.readAsBytesSync();
+      final decoder = SpreadsheetDecoder.decodeBytes(bytes, update: true);
+
+      // Ambil sheet pertama
+      final table = decoder.tables.values.first;
+
+      int parseInt(dynamic value) {
+        if (value == null) return 0;
+        if (value is num) return value.toInt();
+        return int.tryParse(value.toString().replaceAll(RegExp(r'[^0-9\-]'), '')) ?? 0;
+      }
+
+      int successCount = 0;
+      for (int i = 1; i < table.rows.length; i++) {
+        final row = table.rows[i];
+        if (row.isEmpty) continue;
+
+        final barang = BarangModel(
+          nama: row.length > 1 ? row[1]?.toString() ?? "" : "",
+          kategori: row.length > 2 ? row[2]?.toString() ?? "" : "",
+          jenisKemasan: row.length > 3 ? row[3]?.toString() ?? "" : "",
+          panjang: row.length > 4 ? parseInt(row[4]) : 0,
+          lebar: row.length > 5 ? parseInt(row[5]) : 0,
+          tinggi: row.length > 6 ? parseInt(row[6]) : 0,
+          satuanMeter: row.length > 7 ? row[7]?.toString() ?? "" : "",
+          berat: row.length > 8 ? parseInt(row[8]) : 0,
+          satuanBerat: row.length > 9 ? row[9]?.toString() ?? "" : "",
+          deskripsi: row.length > 10 ? row[10]?.toString() ?? "" : "",
+        );
+
+        await DatabaseHelper.instance.insertBarang(barang);
+        successCount++;
+      }
+
+      // Ambil semua data setelah import
+      final allData = await DatabaseHelper.instance.getBarang();
+      print("📦 Jumlah data di DB setelah import: ${allData.length}");
+      for (var b in allData) {
+        print("➡️ ${b.nama} (${b.kategori})");
+      }
+
+      await _loadBarang();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("✅ Import berhasil ($successCount data ditambahkan)")),
+      );
+    } catch (e, st) {
+      print("❌ ERROR IMPORT: $e\n$st");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ Gagal import: $e")),
+      );
+    }
+  }
+
+
 
   /// Ambil data dari database
   Future<void> _loadBarang() async {
@@ -210,6 +276,11 @@ class _StandarpackingState extends State<Standarpacking> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file),
+            tooltip: "Import dari Excel",
+            onPressed: _importFromExcel,
+          ),
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: "Export ke Excel",
