@@ -3,63 +3,51 @@ import 'package:path/path.dart';
 
 /// 🔹 Model class Barang
 class BarangModel {
-  final int? id; // null saat insert
-  final String nama;
-  final String kategori;
-  final String jenisKemasan;
-  final int panjang;
-  final int lebar;
-  final int tinggi;
-  final String satuanMeter;
-  final int berat;
-  final String satuanBerat;
-  final String deskripsi;
+  final int? id;
+  final String itemcode;
+  final String description;
+  final String colorcode;
+  final String color;
+  final int qtyperstore;
+  final String kg_pallet;
+  final String std_pallet;
 
   BarangModel({
     this.id,
-    required this.nama,
-    required this.kategori,
-    required this.jenisKemasan,
-    required this.panjang,
-    required this.lebar,
-    required this.tinggi,
-    required this.satuanMeter,
-    required this.berat,
-    required this.satuanBerat,
-    required this.deskripsi,
+    required this.itemcode,
+    required this.description,
+    required this.colorcode,
+    required this.color,
+    required this.qtyperstore,
+    required this.kg_pallet,
+    required this.std_pallet,
   });
 
-  /// Convert object ke Map (untuk insert/update ke SQLite)
+  /// Convert object ke Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'nama': nama,
-      'kategori': kategori,
-      'jenis_kemasan': jenisKemasan,
-      'panjang': panjang,
-      'lebar': lebar,
-      'tinggi': tinggi,
-      'satuan_meter': satuanMeter,
-      'berat': berat,
-      'satuan_berat': satuanBerat,
-      'deskripsi': deskripsi,
+      'itemcode': itemcode,
+      'description': description,
+      'color_code': colorcode,
+      'color': color,
+      'qty_perstore': qtyperstore,
+      'kg_pallet': kg_pallet,
+      'std_pallet': std_pallet,
     };
   }
 
-  /// Convert Map (dari SQLite) ke object
+  /// Convert Map ke object
   factory BarangModel.fromMap(Map<String, dynamic> map) {
     return BarangModel(
       id: map['id'],
-      nama: map['nama'],
-      kategori: map['kategori'],
-      jenisKemasan: map['jenis_kemasan'],
-      panjang: map['panjang'],
-      lebar: map['lebar'],
-      tinggi: map['tinggi'],
-      satuanMeter: map['satuan_meter'],
-      berat: map['berat'],
-      satuanBerat: map['satuan_berat'],
-      deskripsi: map['deskripsi'],
+      itemcode: map['itemcode'],
+      description: map['description'],
+      colorcode: map['color_code'],
+      color: map['color'],
+      qtyperstore: map['qty_perstore'],
+      kg_pallet: map['kg_pallet'],
+      std_pallet: map['std_pallet'],
     );
   }
 }
@@ -71,65 +59,58 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
-  /// Ambil database (singleton)
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB("barang.db");
     return _database!;
   }
 
-  /// Inisialisasi database
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
     return await openDatabase(
       path,
-      version: 2, // ⬅️ ubah versi database agar migrate ulang
+      version: 2,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
-  /// Buat tabel barang
+  /// Buat tabel sesuai dengan model Barang
   Future _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE barang(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama TEXT,
-        kategori TEXT,
-        jenis_kemasan TEXT,
-        panjang INTEGER,
-        lebar INTEGER,
-        tinggi INTEGER,
-        satuan_meter TEXT,
-        berat INTEGER,
-        satuan_berat TEXT,
-        deskripsi TEXT
+        itemcode TEXT NOT NULL,
+        description TEXT,
+        color_code TEXT,
+        color TEXT,
+        qty_perstore INTEGER,
+        kg_pallet TEXT,
+        std_pallet TEXT
       )
     ''');
   }
 
-  /// Handle upgrade versi DB (hapus tabel lama kalau ada)
+  /// Hapus tabel lama dan buat baru saat upgrade versi DB
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     await db.execute('DROP TABLE IF EXISTS barang');
     await _createDB(db, newVersion);
   }
 
-  /// Tambah barang
+  /// CRUD
   Future<int> insertBarang(BarangModel barang) async {
     final db = await instance.database;
     return await db.insert("barang", barang.toMap());
   }
 
-  /// Ambil semua barang
   Future<List<BarangModel>> getBarang() async {
     final db = await instance.database;
     final result = await db.query("barang");
     return result.map((map) => BarangModel.fromMap(map)).toList();
   }
 
-  /// Update barang
   Future<int> updateBarang(BarangModel barang) async {
     final db = await instance.database;
     return await db.update(
@@ -140,7 +121,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Hapus barang
   Future<int> deleteBarang(int id) async {
     final db = await instance.database;
     return await db.delete(

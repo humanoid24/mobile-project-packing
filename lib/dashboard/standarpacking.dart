@@ -1,13 +1,12 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:project_packing/database/standar_packing_database.dart'; // berisi DatabaseHelper + BarangModel
+import 'package:project_packing/database/standar_packing_database.dart'; // BarangModel & DatabaseHelper
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:open_filex/open_filex.dart';
 import 'package:spreadsheet_decoder/spreadsheet_decoder.dart';
-
 
 class Standarpacking extends StatefulWidget {
   const Standarpacking({super.key});
@@ -18,9 +17,7 @@ class Standarpacking extends StatefulWidget {
 
 class _StandarpackingState extends State<Standarpacking> {
   List<BarangModel> barangList = [];
-
   String searchQuery = "";
-  String? selectedKategori;
 
   @override
   void initState() {
@@ -28,6 +25,7 @@ class _StandarpackingState extends State<Standarpacking> {
     _loadBarang();
   }
 
+  /// Import dari Excel (otomatis abaikan kolom "No" kalau ada)
   Future<void> _importFromExcel() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -39,8 +37,6 @@ class _StandarpackingState extends State<Standarpacking> {
       final file = File(result.files.single.path!);
       final bytes = file.readAsBytesSync();
       final decoder = SpreadsheetDecoder.decodeBytes(bytes, update: true);
-
-      // Ambil sheet pertama
       final table = decoder.tables.values.first;
 
       int parseInt(dynamic value) {
@@ -50,33 +46,32 @@ class _StandarpackingState extends State<Standarpacking> {
       }
 
       int successCount = 0;
-      for (int i = 1; i < table.rows.length; i++) {
+
+      // --- Pastikan file ada datanya
+      if (table.rows.isEmpty) throw Exception("File Excel kosong");
+
+      // --- Loop mulai dari baris ke-2 (index 1)
+      for (int i = 3; i < table.rows.length; i++) {
         final row = table.rows[i];
         if (row.isEmpty) continue;
 
+        // Pastikan jumlah kolom cukup
+        if (row.length < 8) continue;
+
         final barang = BarangModel(
-          nama: row.length > 1 ? row[1]?.toString() ?? "" : "",
-          kategori: row.length > 2 ? row[2]?.toString() ?? "" : "",
-          jenisKemasan: row.length > 3 ? row[3]?.toString() ?? "" : "",
-          panjang: row.length > 4 ? parseInt(row[4]) : 0,
-          lebar: row.length > 5 ? parseInt(row[5]) : 0,
-          tinggi: row.length > 6 ? parseInt(row[6]) : 0,
-          satuanMeter: row.length > 7 ? row[7]?.toString() ?? "" : "",
-          berat: row.length > 8 ? parseInt(row[8]) : 0,
-          satuanBerat: row.length > 9 ? row[9]?.toString() ?? "" : "",
-          deskripsi: row.length > 10 ? row[10]?.toString() ?? "" : "",
+          description: row[2]?.toString() ?? "",
+          itemcode: row[1]?.toString() ?? "",
+          colorcode: row[3]?.toString() ?? "",
+          color: row[4]?.toString() ?? "",
+          qtyperstore: parseInt(row[5]),
+          kg_pallet: row[6]?.toString() ?? "",
+          std_pallet: row[7]?.toString() ?? "",
         );
 
         await DatabaseHelper.instance.insertBarang(barang);
         successCount++;
       }
 
-      // Ambil semua data setelah import
-      final allData = await DatabaseHelper.instance.getBarang();
-      print("📦 Jumlah data di DB setelah import: ${allData.length}");
-      for (var b in allData) {
-        print("➡️ ${b.nama} (${b.kategori})");
-      }
 
       await _loadBarang();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,13 +90,11 @@ class _StandarpackingState extends State<Standarpacking> {
   /// Ambil data dari database
   Future<void> _loadBarang() async {
     final data = await DatabaseHelper.instance.getBarang();
-    setState(() {
-      barangList = data;
-    });
+    setState(() => barangList = data);
   }
 
+  /// Export ke Excel
   Future<void> _exportToExcel() async {
-    // Ambil data dari database
     final data = await DatabaseHelper.instance.getBarang();
 
     if (data.isEmpty) {
@@ -111,45 +104,35 @@ class _StandarpackingState extends State<Standarpacking> {
       return;
     }
 
-    // Buat workbook Excel
     var excel = Excel.createExcel();
     Sheet sheet = excel['Standar Packing'];
 
-    // Tambahkan header
+    // Header
+    // Header (Description di depan)
     sheet.appendRow([
-      TextCellValue('ID'),
-      TextCellValue('Nama'),
-      TextCellValue('Kategori'),
-      TextCellValue('Jenis Kemasan'),
-      TextCellValue('Panjang'),
-      TextCellValue('Lebar'),
-      TextCellValue('Tinggi'),
-      TextCellValue('Satuan Meter'),
-      TextCellValue('Berat'),
-      TextCellValue('Satuan Berat'),
-      TextCellValue('Deskripsi'),
+      TextCellValue('Description'),
+      TextCellValue('Item Code'),
+      TextCellValue('Color Code'),
+      TextCellValue('Color'),
+      TextCellValue('Qty Per Store'),
+      TextCellValue('KG Pallet'),
+      TextCellValue('STD Pallet'),
     ]);
 
-
-    // Tambahkan data ke sheet
+// Data (sesuaikan urutannya)
     for (var b in data) {
       sheet.appendRow([
-        IntCellValue(b.id ?? 0),
-        TextCellValue(b.nama),
-        TextCellValue(b.kategori),
-        TextCellValue(b.jenisKemasan),
-        IntCellValue(b.panjang),
-        IntCellValue(b.lebar),
-        IntCellValue(b.tinggi),
-        TextCellValue(b.satuanMeter),
-        IntCellValue(b.berat),
-        TextCellValue(b.satuanBerat),
-        TextCellValue(b.deskripsi),
+        TextCellValue(b.description),
+        TextCellValue(b.itemcode),
+        TextCellValue(b.colorcode),
+        TextCellValue(b.color),
+        IntCellValue(b.qtyperstore),
+        TextCellValue(b.kg_pallet),
+        TextCellValue(b.std_pallet),
       ]);
     }
 
 
-    // Simpan ke file
     final dir = await getApplicationDocumentsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final filePath = '${dir.path}/standar_packing_$timestamp.xlsx';
@@ -158,14 +141,69 @@ class _StandarpackingState extends State<Standarpacking> {
     if (bytes != null) {
       final file = File(filePath);
       await file.writeAsBytes(bytes);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("✅ Data berhasil diekspor ke $filePath")),
+      );
+      await OpenFilex.open(filePath);
     }
+  }
 
-    // Notifikasi ke user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("✅ Data berhasil diekspor ke $filePath")),
+  /// Dialog tambah/edit barang
+  void _showInputDialog({BarangModel? barang}) {
+    final itemcodeC = TextEditingController(text: barang?.itemcode ?? "");
+    final descriptionC = TextEditingController(text: barang?.description ?? "");
+    final colorcodeC = TextEditingController(text: barang?.colorcode ?? "");
+    final colorC = TextEditingController(text: barang?.color ?? "");
+    final qtyC = TextEditingController(text: barang?.qtyperstore.toString() ?? "0");
+    final kgC = TextEditingController(text: barang?.kg_pallet ?? "");
+    final stdC = TextEditingController(text: barang?.std_pallet ?? "");
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(barang == null ? "Tambah Barang" : "Edit Barang"),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(controller: itemcodeC, decoration: const InputDecoration(labelText: "Item Code")),
+              TextField(controller: descriptionC, decoration: const InputDecoration(labelText: "Description")),
+              TextField(controller: colorcodeC, decoration: const InputDecoration(labelText: "Color Code")),
+              TextField(controller: colorC, decoration: const InputDecoration(labelText: "Color")),
+              TextField(controller: qtyC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Qty Per Store")),
+              TextField(controller: kgC, decoration: const InputDecoration(labelText: "KG Pallet")),
+              TextField(controller: stdC, decoration: const InputDecoration(labelText: "STD Pallet")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          ElevatedButton(
+            onPressed: () async {
+              final newBarang = BarangModel(
+                id: barang?.id,
+                itemcode: itemcodeC.text,
+                description: descriptionC.text,
+                colorcode: colorcodeC.text,
+                color: colorC.text,
+                qtyperstore: int.tryParse(qtyC.text) ?? 0,
+                kg_pallet: kgC.text,
+                std_pallet: stdC.text,
+              );
+
+              if (barang == null) {
+                await DatabaseHelper.instance.insertBarang(newBarang);
+              } else {
+                await DatabaseHelper.instance.updateBarang(newBarang);
+              }
+
+              Navigator.pop(context);
+              _loadBarang();
+            },
+            child: const Text("Simpan"),
+          ),
+        ],
+      ),
     );
-    // setelah file disimpan
-    await OpenFilex.open(filePath);
   }
 
   /// Responsive grid
@@ -175,117 +213,21 @@ class _StandarpackingState extends State<Standarpacking> {
     return 3;
   }
 
-  /// Dialog tambah/edit barang
-  void _showInputDialog({BarangModel? barang}) {
-    final TextEditingController namaC =
-    TextEditingController(text: barang?.nama ?? "");
-    final TextEditingController kategoriC =
-    TextEditingController(text: barang?.kategori ?? "");
-    final TextEditingController jenisKemasanC =
-    TextEditingController(text: barang?.jenisKemasan ?? "");
-    final TextEditingController panjangC =
-    TextEditingController(text: barang?.panjang.toString() ?? "");
-    final TextEditingController lebarC =
-    TextEditingController(text: barang?.lebar.toString() ?? "");
-    final TextEditingController tinggiC =
-    TextEditingController(text: barang?.tinggi.toString() ?? "");
-
-    final TextEditingController satuanMeterC =
-    TextEditingController(text: barang?.satuanMeter ?? "");
-
-
-    final TextEditingController beratC =
-    TextEditingController(text: barang?.berat.toString() ?? "");
-    final TextEditingController satuanBeratC =
-    TextEditingController(text: barang?.satuanBerat ?? "");
-    final TextEditingController deskripsiC =
-    TextEditingController(text: barang?.deskripsi ?? "");
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(barang == null ? "Tambah Barang" : "Edit Barang"),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(controller: namaC, decoration: const InputDecoration(labelText: "Nama")),
-              TextField(controller: kategoriC, decoration: const InputDecoration(labelText: "Kategori")),
-              TextField(controller: jenisKemasanC, decoration: const InputDecoration(labelText: "Jenis Kemasan")),
-              TextField(controller: panjangC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Panjang")),
-              TextField(controller: lebarC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Lebar")),
-              TextField(controller: tinggiC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Tinggi")),
-              TextField(controller: satuanMeterC, decoration: const InputDecoration(labelText: "Satuan Meter")),
-              TextField(controller: beratC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Berat")),
-              TextField(controller: satuanBeratC, decoration: const InputDecoration(labelText: "Satuan Berat")),
-              TextField(controller: deskripsiC, decoration: const InputDecoration(labelText: "Deskripsi")),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
-          ElevatedButton(
-            onPressed: () async {
-              if (namaC.text.isNotEmpty && kategoriC.text.isNotEmpty) {
-                final newBarang = BarangModel(
-                  id: barang?.id, // kalau edit, id diisi
-                  nama: namaC.text,
-                  kategori: kategoriC.text,
-                  jenisKemasan: jenisKemasanC.text,
-                  panjang: int.tryParse(panjangC.text) ?? 0,
-                  lebar: int.tryParse(lebarC.text) ?? 0,
-                  tinggi: int.tryParse(tinggiC.text) ?? 0,
-                  satuanMeter: satuanMeterC.text,
-                  berat: int.tryParse(beratC.text) ?? 0,
-                  satuanBerat: satuanBeratC.text,
-                  deskripsi: deskripsiC.text,
-                );
-
-                if (barang == null) {
-                  await DatabaseHelper.instance.insertBarang(newBarang);
-                } else {
-                  await DatabaseHelper.instance.updateBarang(newBarang);
-                }
-
-                Navigator.pop(context);
-                _loadBarang();
-              }
-            },
-            child: const Text("Simpan"),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
-
-    // filter pencarian
-    List<BarangModel> filteredList = barangList.where((barang) {
-      final matchesSearch =
-      barang.nama.toLowerCase().contains(searchQuery.toLowerCase());
-      final matchesKategori =
-          selectedKategori == null || barang.kategori == selectedKategori;
-      return matchesSearch && matchesKategori;
+    List<BarangModel> filteredList = barangList.where((b) {
+      return b.description.toLowerCase().contains(searchQuery.toLowerCase());
     }).toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Dashboard Barang"),
+        title: const Text("Standar Packing"),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file),
-            tooltip: "Import dari Excel",
-            onPressed: _importFromExcel,
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: "Export ke Excel",
-            onPressed: _exportToExcel,
-          ),
+          IconButton(icon: const Icon(Icons.upload_file), onPressed: _importFromExcel),
+          IconButton(icon: const Icon(Icons.download), onPressed: _exportToExcel),
         ],
       ),
       body: Padding(
@@ -298,17 +240,11 @@ class _StandarpackingState extends State<Standarpacking> {
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: "Cari barang...",
+                      hintText: "Cari item...",
                       prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        searchQuery = value;
-                      });
-                    },
+                    onChanged: (value) => setState(() => searchQuery = value),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -321,7 +257,7 @@ class _StandarpackingState extends State<Standarpacking> {
             ),
             const SizedBox(height: 20),
 
-            // Grid barang
+            // Grid data
             Expanded(
               child: GridView.builder(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -332,77 +268,56 @@ class _StandarpackingState extends State<Standarpacking> {
                 ),
                 itemCount: filteredList.length,
                 itemBuilder: (context, index) {
-                  final barang = filteredList[index];
+                  final b = filteredList[index];
                   return Card(
                     elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(barang.nama,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text("Kategori: ${barang.kategori}"),
-                          Text("Kemasan: ${barang.jenisKemasan}"),
-                          Text("Dimensi: ${barang.panjang} x ${barang.lebar} x ${barang.tinggi} ${barang.satuanMeter}"),
-                          Text("Berat: ${barang.berat} ${barang.satuanBerat}"),
-                          Expanded(
-                            child: Text(
-                              "Deskripsi: ${barang.deskripsi}",
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
-                            ),
-                          ),
+                          Text(b.description, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text("Item Code: ${b.itemcode}"),
+                          Text("Color Code: ${b.colorcode}"),
+                          Text("Color: ${b.color} "),
+                          Text("Qty/store: ${b.qtyperstore}"),
+                          Text("KG Pallet: ${b.kg_pallet}"),
+                          Text("STD Pallet: ${b.std_pallet}"),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              IconButton( onPressed: () { _showInputDialog(barang: barang); }, icon: const Icon(Icons.edit, color: Colors.blue), ),
+                              IconButton(onPressed: () => _showInputDialog(barang: b), icon: const Icon(Icons.edit, color: Colors.blue)),
                               IconButton(
                                 onPressed: () async {
-                                  // Tampilkan dialog konfirmasi
-                                  final bool? confirmDelete = await showDialog(
+                                  final confirm = await showDialog<bool>(
                                     context: context,
-                                    builder: (context) => AlertDialog(
+                                    builder: (_) => AlertDialog(
                                       title: const Text("Konfirmasi Hapus"),
-                                      content: Text("Apakah Anda yakin ingin menghapus '${barang.nama}'?"),
+                                      content: Text("Hapus '${b.description}'?"),
                                       actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, false), // batal
-                                          child: const Text("Batal"),
-                                        ),
+                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
                                         ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
-                                          ),
-                                          onPressed: () => Navigator.pop(context, true), // konfirmasi
+                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                          onPressed: () => Navigator.pop(context, true),
                                           child: const Text("Hapus"),
                                         ),
                                       ],
                                     ),
                                   );
 
-                                  // Kalau user pilih "Hapus"
-                                  if (confirmDelete == true) {
-                                    await DatabaseHelper.instance.deleteBarang(barang.id!);
+                                  if (confirm == true) {
+                                    await DatabaseHelper.instance.deleteBarang(b.id!);
                                     _loadBarang();
-
-                                    // kasih feedback snackbar
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text("Barang '${barang.nama}' berhasil dihapus"),
-                                        backgroundColor: Colors.red,
-                                      ),
+                                      SnackBar(content: Text("Barang '${b.description}' dihapus"), backgroundColor: Colors.red),
                                     );
                                   }
                                 },
                                 icon: const Icon(Icons.delete, color: Colors.red),
                               ),
-
                             ],
-                          )
+                          ),
                         ],
                       ),
                     ),
