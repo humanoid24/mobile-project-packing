@@ -37,7 +37,42 @@ class _StandarpackingState extends State<Standarpacking> {
       final file = File(result.files.single.path!);
       final bytes = file.readAsBytesSync();
       final decoder = SpreadsheetDecoder.decodeBytes(bytes, update: true);
-      final table = decoder.tables.values.first;
+
+      // Ambil semua nama sheet (harusnya angka 1-31)
+      final sheetNames = decoder.tables.keys.toList();
+
+      // Sort biar urut dari kecil ke besar
+      sheetNames.sort((a, b) => int.parse(a).compareTo(int.parse(b)));
+
+      // --- Tampilkan dialog pilih sheet angka ---
+      String? selectedSheet = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Pilih Sheet (Tanggal)"),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: sheetNames.length,
+                itemBuilder: (context, i) {
+                  return ListTile(
+                    title: Text("Tanggal ${sheetNames[i]}"),
+                    onTap: () => Navigator.pop(context, sheetNames[i]),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      );
+
+      if (selectedSheet == null) return;
+
+      final table = decoder.tables[selectedSheet];
+      if (table == null || table.rows.isEmpty) {
+        throw Exception("Sheet '$selectedSheet' kosong atau tidak valid");
+      }
 
       int parseInt(dynamic value) {
         if (value == null) return 0;
@@ -47,16 +82,10 @@ class _StandarpackingState extends State<Standarpacking> {
 
       int successCount = 0;
 
-      // --- Pastikan file ada datanya
-      if (table.rows.isEmpty) throw Exception("File Excel kosong");
-
-      // --- Loop mulai dari baris ke-2 (index 1)
+      // --- Import semua data dari sheet terpilih ---
       for (int i = 3; i < table.rows.length; i++) {
         final row = table.rows[i];
-        if (row.isEmpty) continue;
-
-        // Pastikan jumlah kolom cukup
-        if (row.length < 8) continue;
+        if (row.isEmpty || row.length < 8) continue;
 
         final barang = BarangModel(
           description: row[2]?.toString() ?? "",
@@ -72,10 +101,12 @@ class _StandarpackingState extends State<Standarpacking> {
         successCount++;
       }
 
-
       await _loadBarang();
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("✅ Import berhasil ($successCount data ditambahkan)")),
+        SnackBar(
+          content: Text("✅ Berhasil import $successCount data dari sheet tanggal $selectedSheet"),
+        ),
       );
     } catch (e, st) {
       print("❌ ERROR IMPORT: $e\n$st");
@@ -84,6 +115,7 @@ class _StandarpackingState extends State<Standarpacking> {
       );
     }
   }
+
 
 
 
