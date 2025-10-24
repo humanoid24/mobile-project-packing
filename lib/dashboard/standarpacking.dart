@@ -94,7 +94,7 @@ class _StandarpackingState extends State<Standarpacking> {
           color: row[4]?.toString() ?? "",
           qtyperstore: parseInt(row[5]),
           kg_pallet: row[6]?.toString() ?? "",
-          std_pallet: row[7]?.toString() ?? "",
+          std_packing: row[7]?.toString() ?? "",
         );
 
         await DatabaseHelper.instance.insertBarang(barang);
@@ -148,7 +148,7 @@ class _StandarpackingState extends State<Standarpacking> {
       TextCellValue('Color'),
       TextCellValue('Qty Per Store'),
       TextCellValue('KG Pallet'),
-      TextCellValue('STD Pallet'),
+      TextCellValue('STD Packing'),
     ]);
 
 // Data (sesuaikan urutannya)
@@ -160,7 +160,7 @@ class _StandarpackingState extends State<Standarpacking> {
         TextCellValue(b.color),
         IntCellValue(b.qtyperstore),
         TextCellValue(b.kg_pallet),
-        TextCellValue(b.std_pallet),
+        TextCellValue(b.std_packing),
       ]);
     }
 
@@ -188,7 +188,7 @@ class _StandarpackingState extends State<Standarpacking> {
     final colorC = TextEditingController(text: barang?.color ?? "");
     final qtyC = TextEditingController(text: barang?.qtyperstore.toString() ?? "0");
     final kgC = TextEditingController(text: barang?.kg_pallet ?? "");
-    final stdC = TextEditingController(text: barang?.std_pallet ?? "");
+    final stdC = TextEditingController(text: barang?.std_packing ?? "");
 
     showDialog(
       context: context,
@@ -203,7 +203,7 @@ class _StandarpackingState extends State<Standarpacking> {
               TextField(controller: colorC, decoration: const InputDecoration(labelText: "Color")),
               TextField(controller: qtyC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Qty Per Store")),
               TextField(controller: kgC, decoration: const InputDecoration(labelText: "KG Pallet")),
-              TextField(controller: stdC, decoration: const InputDecoration(labelText: "STD Pallet")),
+              TextField(controller: stdC, decoration: const InputDecoration(labelText: "STD Packing")),
             ],
           ),
         ),
@@ -219,7 +219,7 @@ class _StandarpackingState extends State<Standarpacking> {
                 color: colorC.text,
                 qtyperstore: int.tryParse(qtyC.text) ?? 0,
                 kg_pallet: kgC.text,
-                std_pallet: stdC.text,
+                std_packing: stdC.text,
               );
 
               if (barang == null) {
@@ -315,7 +315,7 @@ class _StandarpackingState extends State<Standarpacking> {
                           Text("Color: ${b.color} "),
                           Text("Qty/store: ${b.qtyperstore}"),
                           Text("KG Pallet: ${b.kg_pallet}"),
-                          Text("STD Pallet: ${b.std_pallet}"),
+                          Text("STD Packing: ${b.std_packing}"),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [

@@ -10,7 +10,7 @@ class BarangModel {
   final String color;
   final int qtyperstore;
   final String kg_pallet;
-  final String std_pallet;
+  final String std_packing;
 
   BarangModel({
     this.id,
@@ -20,7 +20,7 @@ class BarangModel {
     required this.color,
     required this.qtyperstore,
     required this.kg_pallet,
-    required this.std_pallet,
+    required this.std_packing,
   });
 
   /// Convert object ke Map
@@ -33,7 +33,7 @@ class BarangModel {
       'color': color,
       'qty_perstore': qtyperstore,
       'kg_pallet': kg_pallet,
-      'std_pallet': std_pallet,
+      'std_packing': std_packing,
     };
   }
 
@@ -47,7 +47,7 @@ class BarangModel {
       color: map['color'],
       qtyperstore: map['qty_perstore'],
       kg_pallet: map['kg_pallet'],
-      std_pallet: map['std_pallet'],
+      std_packing: map['std_packing'],
     );
   }
 }
@@ -88,7 +88,7 @@ class DatabaseHelper {
         color TEXT,
         qty_perstore INTEGER,
         kg_pallet TEXT,
-        std_pallet TEXT
+        std_packing TEXT
       )
     ''');
   }
